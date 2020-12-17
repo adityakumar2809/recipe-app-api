@@ -100,3 +100,46 @@ class PrivateTagsApiTests(TestCase):
         res = self.client.post(TAGS_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_retrieve_tags_assigned_to_recipes(self):
+        """Test filtering tags by those assigned to recipes"""
+        tag1 = models.Tag.objects.create(user=self.user, name='Breakfast')
+        tag2 = models.Tag.objects.create(user=self.user, name='Lunch')
+        recipe = models.Recipe.objects.create(
+            title='Coriander eggs on toast',
+            time_minutes=15,
+            price=55.00,
+            user=self.user
+        )
+        recipe.tags.add(tag1)
+
+        res = self.client.get(TAGS_URL, {'assigned_only': 1})
+
+        serializer1 = serializers.TagSerializer(tag1)
+        serializer2 = serializers.TagSerializer(tag2)
+        self.assertIn(serializer1.data, res.data)
+        self.assertNotIn(serializer2.data, res.data)
+
+    def test_retrieve_tags_assigned_unique(self):
+        """Test filtering tags by assigned returns unique value"""
+        tag = models.Tag.objects.create(user=self.user, name='Breakfast')
+        models.Tag.objects.create(user=self.user, name='Lunch')
+        recipe1 = models.Recipe.objects.create(
+            title='Coriander eggs on toast',
+            time_minutes=15,
+            price=55.00,
+            user=self.user
+        )
+        recipe1.tags.add(tag)
+
+        recipe2 = models.Recipe.objects.create(
+            title='Avocado on toast',
+            time_minutes=25,
+            price=15.00,
+            user=self.user
+        )
+        recipe2.tags.add(tag)
+
+        res = self.client.get(TAGS_URL, {'assigned_only': 1})
+
+        self.assertEqual(len(res.data), 1)
